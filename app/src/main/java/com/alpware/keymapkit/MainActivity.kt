@@ -11,6 +11,11 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -139,7 +144,34 @@ class MainActivity : AppCompatActivity(), PlayUpdateManager.Listener {
                                     requestAutomaticReviewIfEligible()
                                 }
                             } else {
-                                NavHost(navController = navController, startDestination = "home") {
+                                NavHost(
+                                    navController = navController,
+                                    startDestination = "home",
+                                    enterTransition = {
+                                        slideInHorizontally(
+                                            animationSpec = tween(260),
+                                            initialOffsetX = { it / 10 },
+                                        ) + fadeIn(animationSpec = tween(200))
+                                    },
+                                    exitTransition = {
+                                        slideOutHorizontally(
+                                            animationSpec = tween(220),
+                                            targetOffsetX = { -it / 12 },
+                                        ) + fadeOut(animationSpec = tween(160))
+                                    },
+                                    popEnterTransition = {
+                                        slideInHorizontally(
+                                            animationSpec = tween(240),
+                                            initialOffsetX = { -it / 10 },
+                                        ) + fadeIn(animationSpec = tween(180))
+                                    },
+                                    popExitTransition = {
+                                        slideOutHorizontally(
+                                            animationSpec = tween(240),
+                                            targetOffsetX = { it / 6 },
+                                        ) + fadeOut(animationSpec = tween(160))
+                                    },
+                                ) {
                                     composable("home") {
                                         HomeScreen(
                                             repository = repository,
