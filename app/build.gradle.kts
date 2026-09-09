@@ -26,7 +26,7 @@ extensions.configure<com.android.build.api.dsl.ApplicationExtension>("android") 
         applicationId = "com.alpware.keymapkit"
         minSdk = 28
         targetSdk = 37
-        versionCode = 15
+        versionCode = 16
         versionName = "1.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -53,6 +53,9 @@ extensions.configure<com.android.build.api.dsl.ApplicationExtension>("android") 
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
         }
     }
     compileOptions {

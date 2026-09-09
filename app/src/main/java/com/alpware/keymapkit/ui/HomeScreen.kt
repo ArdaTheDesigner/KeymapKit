@@ -291,7 +291,7 @@ private fun StatusCard(
                 label,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -401,7 +401,13 @@ private fun DiagnosticsCard(
                 keyboards.take(3).forEach { keyboard ->
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.Keyboard, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                        Text(keyboard, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            text = keyboard,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }

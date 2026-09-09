@@ -1,6 +1,5 @@
 package com.alpware.keymapkit
 
-import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Color
@@ -11,11 +10,6 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,9 +22,6 @@ import androidx.core.os.LocaleListCompat
 import androidx.core.net.toUri
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import com.alpware.keymapkit.ads.AdConsentManager
 import com.alpware.keymapkit.ads.InterstitialAdManager
 import com.alpware.keymapkit.ads.PersistentBanner
@@ -55,6 +46,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity(), PlayUpdateManager.Listener {
+    private enum class AppScreen {
+        Home,
+        Layouts,
+        Settings,
+    }
+
     private val updateLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
@@ -66,7 +63,7 @@ class MainActivity : AppCompatActivity(), PlayUpdateManager.Listener {
     private lateinit var playUpdateManager: PlayUpdateManager
     private lateinit var playReviewManager: PlayReviewManager
     private lateinit var reviewPromptCoordinator: ReviewPromptCoordinator
-    private var updateDownloadedDialog: AlertDialog? = null
+    private var showUpdateReadyDialog by mutableStateOf(false)
     private var reviewCheckOnNextResume = false
     private lateinit var adConsentManager: AdConsentManager
     private lateinit var interstitialAdManager: InterstitialAdManager
@@ -132,8 +129,29 @@ class MainActivity : AppCompatActivity(), PlayUpdateManager.Listener {
                 )
             }
             KeymapKitTheme(darkTheme = useDarkTheme) {
-                val navController = rememberNavController()
                 var configured by remember { mutableStateOf(repository.isConfigured) }
+                var currentScreen by remember { mutableStateOf(AppScreen.Home) }
+                var isBackNavigation by remember { mutableStateOf(false) }
+                var layoutsChanged by remember { mutableStateOf(false) }
+
+                fun navigateTo(screen: AppScreen) {
+                    isBackNavigation = false
+                    if (screen == AppScreen.Layouts) layoutsChanged = false
+                    currentScreen = screen
+                }
+
+                fun navigateBack() {
+                    if (currentScreen == AppScreen.Home) return
+                    val leavingLayouts = currentScreen == AppScreen.Layouts
+                    isBackNavigation = true
+                    currentScreen = AppScreen.Home
+                    if (leavingLayouts && layoutsChanged) {
+                        val reviewStarted = requestAutomaticReviewIfEligible()
+                        if (!reviewStarted && ::interstitialAdManager.isInitialized) {
+                            interstitialAdManager.showIfEligible()
+                        }
+                    }
+                }
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxSize()) {
                         Box(Modifier.weight(1f)) {
@@ -144,58 +162,28 @@ class MainActivity : AppCompatActivity(), PlayUpdateManager.Listener {
                                     requestAutomaticReviewIfEligible()
                                 }
                             } else {
-                                NavHost(
-                                    navController = navController,
-                                    startDestination = "home",
-                                    enterTransition = {
-                                        slideInHorizontally(
-                                            animationSpec = tween(260),
-                                            initialOffsetX = { it / 10 },
-                                        ) + fadeIn(animationSpec = tween(200))
+                                KeymapPredictiveScreenHost(
+                                    current = currentScreen,
+                                    previous = AppScreen.Home.takeIf {
+                                        currentScreen != AppScreen.Home
                                     },
-                                    exitTransition = {
-                                        slideOutHorizontally(
-                                            animationSpec = tween(220),
-                                            targetOffsetX = { -it / 12 },
-                                        ) + fadeOut(animationSpec = tween(160))
-                                    },
-                                    popEnterTransition = {
-                                        slideInHorizontally(
-                                            animationSpec = tween(240),
-                                            initialOffsetX = { -it / 10 },
-                                        ) + fadeIn(animationSpec = tween(180))
-                                    },
-                                    popExitTransition = {
-                                        slideOutHorizontally(
-                                            animationSpec = tween(240),
-                                            targetOffsetX = { it / 6 },
-                                        ) + fadeOut(animationSpec = tween(160))
-                                    },
-                                ) {
-                                    composable("home") {
+                                    onBack = ::navigateBack,
+                                    depth = { if (it == AppScreen.Home) 0 else 1 },
+                                    isBackNavigation = isBackNavigation,
+                                ) { displayedScreen ->
+                                    when (displayedScreen) {
+                                    AppScreen.Home -> {
                                         HomeScreen(
                                             repository = repository,
-                                            onManageLayouts = { navController.navigate("layouts") },
+                                            onManageLayouts = { navigateTo(AppScreen.Layouts) },
                                             onOpenKeyboardSettings = ::openKeyboardSettings,
-                                            onOpenSettings = { navController.navigate("settings") }
+                                            onOpenSettings = { navigateTo(AppScreen.Settings) }
                                         )
                                     }
-                                    composable("layouts") {
-                                        var layoutsChanged by remember { mutableStateOf(false) }
+                                    AppScreen.Layouts -> {
                                         LayoutManagerScreen(
                                             repository = repository,
-                                            onBack = {
-                                                navController.popBackStack()
-                                                if (layoutsChanged) {
-                                                    val reviewStarted =
-                                                        requestAutomaticReviewIfEligible()
-                                                    if (!reviewStarted &&
-                                                        ::interstitialAdManager.isInitialized
-                                                    ) {
-                                                        interstitialAdManager.showIfEligible()
-                                                    }
-                                                }
-                                            },
+                                            onBack = ::navigateBack,
                                             onLayoutChanged = {
                                                 layoutsChanged = true
                                                 reviewPromptCoordinator.recordLayoutChanged()
@@ -205,9 +193,9 @@ class MainActivity : AppCompatActivity(), PlayUpdateManager.Listener {
                                             }
                                         )
                                     }
-                                    composable("settings") {
+                                    AppScreen.Settings -> {
                                         SettingsScreen(
-                                            onBack = { navController.popBackStack() },
+                                            onBack = ::navigateBack,
                                             onOpenStoreReview = ::openPlayStoreReview,
                                             onCheckForUpdate = { playUpdateManager.checkForUpdate(true) },
                                             themeMode = themeMode,
@@ -248,6 +236,7 @@ class MainActivity : AppCompatActivity(), PlayUpdateManager.Listener {
                                             }
                                         )
                                     }
+                                    }
                                 }
                             }
                         }
@@ -261,6 +250,16 @@ class MainActivity : AppCompatActivity(), PlayUpdateManager.Listener {
                             )
                         }
                     }
+                }
+
+                if (showUpdateReadyDialog) {
+                    UpdateReadyDialog(
+                        onRestart = {
+                            showUpdateReadyDialog = false
+                            playUpdateManager.completeUpdate()
+                        },
+                        onLater = { showUpdateReadyDialog = false },
+                    )
                 }
             }
         }
@@ -279,7 +278,6 @@ class MainActivity : AppCompatActivity(), PlayUpdateManager.Listener {
     }
 
     override fun onDestroy() {
-        updateDownloadedDialog?.dismiss()
         if (::playUpdateManager.isInitialized) playUpdateManager.close()
         if (::interstitialAdManager.isInitialized) interstitialAdManager.clear()
         if (::premiumBillingManager.isInitialized) premiumBillingManager.close()
@@ -375,14 +373,8 @@ class MainActivity : AppCompatActivity(), PlayUpdateManager.Listener {
     override fun onUpdateError() = toast(R.string.update_error)
 
     override fun onUpdateDownloaded() {
-        if (isFinishing || isDestroyed || updateDownloadedDialog?.isShowing == true) return
-        updateDownloadedDialog = AlertDialog.Builder(this)
-            .setTitle(R.string.update_ready_title)
-            .setMessage(R.string.update_ready_message)
-            .setCancelable(false)
-            .setPositiveButton(R.string.update_restart_now) { _, _ -> playUpdateManager.completeUpdate() }
-            .setNegativeButton(R.string.update_restart_later, null)
-            .show()
+        if (isFinishing || isDestroyed || showUpdateReadyDialog) return
+        showUpdateReadyDialog = true
     }
 
     private fun toast(message: Int) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()

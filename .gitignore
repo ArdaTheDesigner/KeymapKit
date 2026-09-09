@@ -88,3 +88,4 @@ google-services.json
 /.navigation/
 /.externalNativeBuild/
 .cxx/
+/app/release/mapping.txt
