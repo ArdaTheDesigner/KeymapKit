@@ -331,11 +331,11 @@ key L {
 }
 
 key SEMICOLON {
-  label: '\u015f'
-  base: '\u015f'
-  shift: '\u015e'
-  capslock: '\u015e'
-  capslock+shift: '\u015f'
+  label: 'i'
+  base: 'i'
+  shift: '\u0130'
+  capslock: '\u0130'
+  capslock+shift: 'i'
   ralt: '\u0301'
 }
 
